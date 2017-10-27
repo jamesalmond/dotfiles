@@ -1,4 +1,88 @@
 #!/bin/sh
+
+abort() { STRAP_STEP="";   echo "!!! $*" >&2; exit 1; }
+log()   { STRAP_STEP="$*"; echo "--> $*"; }
+logn()  { STRAP_STEP="$*"; printf -- "--> %s " "$*"; }
+logk()  { STRAP_STEP="";   echo "OK"; }
+
+# Keep sudo timestamp updated while Strap is running.
+if [ "$1" = "--sudo-wait" ]; then
+  while true; do
+    mkdir -p "/var/db/sudo/$SUDO_USER"
+    touch "/var/db/sudo/$SUDO_USER"
+    sleep 1
+  done
+  exit 0
+fi
+
+[ "$USER" = "root" ] && abort "Run Strap as yourself, not root."
+groups | grep $Q admin || abort "Add $USER to the admin group."
+
+defaults write com.apple.Safari \
+  com.apple.Safari.ContentPageGroupIdentifier.WebKit2JavaEnabled \
+  -bool false
+defaults write com.apple.Safari \
+  com.apple.Safari.ContentPageGroupIdentifier.WebKit2JavaEnabledForLocalFiles \
+  -bool false
+defaults write com.apple.screensaver askForPassword -int 1
+defaults write com.apple.screensaver askForPasswordDelay -int 0
+sudo defaults write /Library/Preferences/com.apple.alf globalstate -int 1
+sudo launchctl load /System/Library/LaunchDaemons/com.apple.alf.agent.plist 2>/dev/null
+
+# Install the Xcode Command Line Tools.
+DEVELOPER_DIR=$("xcode-select" -print-path 2>/dev/null || true)
+if [ -z "$DEVELOPER_DIR" ] || ! [ -f "$DEVELOPER_DIR/usr/bin/git" ] \
+                           || ! [ -f "/usr/include/iconv.h" ]
+then
+  log "Installing the Xcode Command Line Tools:"
+  CLT_PLACEHOLDER="/tmp/.com.apple.dt.CommandLineTools.installondemand.in-progress"
+  sudo touch "$CLT_PLACEHOLDER"
+  CLT_PACKAGE=$(softwareupdate -l | \
+                grep -B 1 -E "Command Line (Developer|Tools)" | \
+                awk -F"*" '/^ +\*/ {print $2}' | sed 's/^ *//' | head -n1)
+  sudo softwareupdate -i "$CLT_PACKAGE"
+  sudo rm -f "$CLT_PLACEHOLDER"
+  if ! [ -f "/usr/include/iconv.h" ]; then
+    echo
+    logn "Requesting user install of Xcode Command Line Tools:"
+    xcode-select --install
+  fi
+  logk
+fi
+
+# Check if the Xcode license is agreed to and agree if not.
+xcode_license() {
+  if /usr/bin/xcrun clang 2>&1 | grep $Q license; then
+    if [ -n "$STRAP_INTERACTIVE" ]; then
+      logn "Asking for Xcode license confirmation:"
+      sudo xcodebuild -license
+      logk
+    else
+      abort "Run 'sudo xcodebuild -license' to agree to the Xcode license."
+    fi
+  fi
+}
+xcode_license
+
+/usr/bin/ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
+brew update
+
+# Check and install any remaining software updates.
+logn "Checking for software updates:"
+if softwareupdate -l 2>&1 | grep $Q "No new software available."; then
+  logk
+else
+  echo
+  log "Installing software updates:"
+  if [ -z "$STRAP_CI" ]; then
+    sudo softwareupdate --install --all
+    xcode_license
+  else
+    echo "Skipping software updates for CI"
+  fi
+  logk
+fi
+
 # Install all dotfiles into the home directory
 
 DOTFILESDIRREL=$(dirname $0)
@@ -40,14 +124,4 @@ for DOTFILE in *; do
   fi
 done
 
-if [ -d "~/.oh-my-zsh" ]; then
-  upgrade_oh_my_zsh
-else
-  sh -c "$(curl -fsSL https://raw.githubusercontent.com/robbyrussell/oh-my-zsh/master/tools/install.sh)"
-fi
-
-if [ -d "~/.janus" ]; then
-  rake -f ~/.vim/Rakefile
-else
-  curl -L https://bit.ly/janus-bootstrap | bash
-fi
+script/extras
