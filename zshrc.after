@@ -1,0 +1,10 @@
+# ALIASES
+alias be="bundle exec"
+alias gst="git status"
+alias drake="docker-compose -f docker-compose-dev.yml -f docker-compose.yml exec app bin/rake"
+alias drails="docker-compose -f docker-compose-dev.yml -f docker-compose.yml exec app bin/rails"
+alias dspec="docker-compose -f docker-compose-dev.yml -f docker-compose.yml exec app bin/rspec"
+alias drun="docker-compose -f docker-compose-dev.yml -f docker-compose.yml exec app"
+alias dbe="docker-compose -f docker-compose-dev.yml -f docker-compose.yml exec app bundle exec"
+alias dcap="docker-compose -f docker-compose-dev.yml -f docker-compose.yml exec app bundle exec"
+alias dc="docker-compose -f docker-compose-dev.yml -f docker-compose.yml"
