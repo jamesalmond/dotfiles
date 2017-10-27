@@ -124,4 +124,10 @@ for DOTFILE in *; do
   fi
 done
 
+if [ -f "$HOME/.Brewfile" ]; then
+  log "Installing from user Brewfile on GitHub:"
+  brew bundle check --global || brew bundle --global
+  logk
+fi
+
 script/extras
