@@ -1,6 +1,9 @@
 #!/bin/sh
 
-rbenv install 2.4.2
+rbenv versions | grep 2.4.2
+if [[ $? != 0 ]] ; then
+  rbenv install 2.4.2
+fi
 rbenv global 2.4.2
 
 if [ -d ~/.janus ]; then

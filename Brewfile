@@ -30,6 +30,7 @@ cask "macvim"
 cask "docker"
 cask "atom"
 cask "vlc"
+cask "firefox"
 
 mas "Keynote", id: 409183694
 mas "Numbers", id: 409203825
