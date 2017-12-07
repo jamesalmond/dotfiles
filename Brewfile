@@ -17,6 +17,8 @@ brew "vim"
 brew "wget"
 brew "ack"
 brew "ctags"
+brew "yarn"
+brew "telnet"
 
 cask "1password"
 cask "1password-cli"
@@ -32,6 +34,8 @@ cask "atom"
 cask "vlc"
 cask "firefox"
 cask "skype"
+cask "balsamiq-mockups"
+cask "windscribe"
 
 mas "Keynote", id: 409183694
 mas "Numbers", id: 409203825
