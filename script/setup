@@ -1,137 +1,19 @@
 #!/bin/sh
 
-abort() { STRAP_STEP="";   echo "!!! $*" >&2; exit 1; }
-log()   { STRAP_STEP="$*"; echo "--> $*"; }
-logn()  { STRAP_STEP="$*"; printf -- "--> %s " "$*"; }
-logk()  { STRAP_STEP="";   echo "OK"; }
-
-# Keep sudo timestamp updated while Strap is running.
-if [ "$1" = "--sudo-wait" ]; then
-  while true; do
-    mkdir -p "/var/db/sudo/$SUDO_USER"
-    touch "/var/db/sudo/$SUDO_USER"
-    sleep 1
-  done
-  exit 0
-fi
-
-[ "$USER" = "root" ] && abort "Run Strap as yourself, not root."
-groups | grep $Q admin || abort "Add $USER to the admin group."
-
-defaults write com.apple.Safari \
-  com.apple.Safari.ContentPageGroupIdentifier.WebKit2JavaEnabled \
-  -bool false
-defaults write com.apple.Safari \
-  com.apple.Safari.ContentPageGroupIdentifier.WebKit2JavaEnabledForLocalFiles \
-  -bool false
-defaults write com.apple.screensaver askForPassword -int 1
-defaults write com.apple.screensaver askForPasswordDelay -int 0
-sudo defaults write /Library/Preferences/com.apple.alf globalstate -int 1
-sudo launchctl load /System/Library/LaunchDaemons/com.apple.alf.agent.plist 2>/dev/null
-
-# Install the Xcode Command Line Tools.
-DEVELOPER_DIR=$("xcode-select" -print-path 2>/dev/null || true)
-if [ -z "$DEVELOPER_DIR" ] || ! [ -f "$DEVELOPER_DIR/usr/bin/git" ] \
-                           || ! [ -f "/usr/include/iconv.h" ]
-then
-  log "Installing the Xcode Command Line Tools:"
-  CLT_PLACEHOLDER="/tmp/.com.apple.dt.CommandLineTools.installondemand.in-progress"
-  sudo touch "$CLT_PLACEHOLDER"
-  CLT_PACKAGE=$(softwareupdate -l | \
-                grep -B 1 -E "Command Line (Developer|Tools)" | \
-                awk -F"*" '/^ +\*/ {print $2}' | sed 's/^ *//' | head -n1)
-  sudo softwareupdate -i "$CLT_PACKAGE"
-  sudo rm -f "$CLT_PLACEHOLDER"
-  if ! [ -f "/usr/include/iconv.h" ]; then
-    echo
-    logn "Requesting user install of Xcode Command Line Tools:"
-    xcode-select --install
-  fi
-  logk
-fi
-
-# Check if the Xcode license is agreed to and agree if not.
-xcode_license() {
-  if /usr/bin/xcrun clang 2>&1 | grep $Q license; then
-    if [ -n "$STRAP_INTERACTIVE" ]; then
-      logn "Asking for Xcode license confirmation:"
-      sudo xcodebuild -license
-      logk
-    else
-      abort "Run 'sudo xcodebuild -license' to agree to the Xcode license."
-    fi
-  fi
-}
-xcode_license
-
-which -s brew
+rbenv versions | grep 2.6.0
 if [[ $? != 0 ]] ; then
-  /usr/bin/ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
+  rbenv install 2.6.0
 fi
+rbenv global 2.6.0
 
-brew update
-
-# Check and install any remaining software updates.
-logn "Checking for software updates:"
-if softwareupdate -l 2>&1 | grep $Q "No new software available."; then
-  logk
+if [ -d ~/.janus ]; then
+  rake -f ~/.vim/Rakefile
 else
-  echo
-  log "Installing software updates:"
-  if [ -z "$STRAP_CI" ]; then
-    sudo softwareupdate --install --all
-    xcode_license
-  else
-    echo "Skipping software updates for CI"
-  fi
-  logk
+  curl -L https://bit.ly/janus-bootstrap | bash
 fi
 
-# Install all dotfiles into the home directory
-
-DOTFILESDIRREL=$(dirname $0)
-cd $DOTFILESDIRREL/..
-DOTFILESDIR=$(pwd -P)
-
-[ $(uname -s) = "Darwin" ] && export MACOS=1 && export UNIX=1
-[ $(uname -s) = "Linux" ] && export LINUX=1 && export UNIX=1
-uname -s | grep -q "_NT-" && export WINDOWS=1
-
-for DOTFILE in *; do
-  HOMEFILE="$HOME/.$DOTFILE"
-  [ -d $DOTFILE ] && DOTFILE="$DOTFILE/"
-  DIRFILE="$DOTFILESDIR/$DOTFILE"
-
-  echo $DOTFILE | egrep -q '(^script/$|\.txt$|\.md$)' && continue
-
-  # Don't install some files unless you're also called James.
-  if echo $USER | grep -vq 'james'
-  then
-    echo $DOTFILE | grep -q 'gitconfig-user' && continue
-    echo $DOTFILE | grep -q 'ssh' && continue
-  fi
-
-  echo $DOTFILE | grep -q '\.sh' \
-    && HOMEFILE="$HOME/.$(echo $DOTFILE | sed -e 's/\.sh//')"
-
-  if [ $UNIX ]
-  then
-    if [ -L "$HOMEFILE" ] && ! [ -d $DOTFILE ]
-    then
-      ln -sfv "$DIRFILE" "$HOMEFILE"
-    else
-      rm -rv "$HOMEFILE"
-      ln -sv "$DIRFILE" "$HOMEFILE"
-    fi
-  else
-    cp -rv "$DIRFILE" "$HOMEFILE"
-  fi
-done
-
-if [ -f "$HOME/.Brewfile" ]; then
-  log "Installing from user Brewfile on GitHub:"
-  brew bundle check --global || brew bundle --global
-  logk
+if [ -d ~/.oh-my-zsh ]; then
+  sh "$ZSH/tools/upgrade.sh"
+else
+  sh -c "$(curl -fsSL https://raw.githubusercontent.com/robbyrussell/oh-my-zsh/master/tools/install.sh)"
 fi
-
-script/extras
