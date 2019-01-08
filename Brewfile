@@ -36,6 +36,7 @@ cask "firefox"
 cask "skype"
 cask "balsamiq-mockups"
 cask "windscribe"
+cask "ngrok"
 
 mas "Keynote", id: 409183694
 mas "Numbers", id: 409203825

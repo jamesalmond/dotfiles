@@ -1,4 +1,5 @@
 --ignore-dir=cache
+--ignore-dir=coverage
 --ignore-dir=tmp
 --ignore-dir=compiled
 --ignore-dir=gems
