@@ -19,6 +19,7 @@ brew "ack"
 brew "ctags"
 brew "yarn"
 brew "telnet"
+brew "postgresql"
 
 cask "1password"
 cask "1password-cli"
