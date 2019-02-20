@@ -22,6 +22,7 @@ brew "telnet"
 brew "postgresql"
 brew "awscli"
 brew "awsebcli"
+brew "serverless"
 
 cask "1password"
 cask "1password-cli"
